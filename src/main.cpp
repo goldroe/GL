@@ -95,6 +95,83 @@ void frame_buffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+struct Platform_File {
+    void *contents;
+    int64_t content_size;
+};
+
+int64_t get_file_size(FILE *fp) {
+    int64_t size = 0;
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+    rewind(fp);
+
+    return size;
+}
+
+Platform_File read_file(const char *file_name) {
+    Platform_File result{};
+    FILE *fp = fopen(file_name, "rb");
+    if (fp == NULL) {
+        printf("Error opening file: %s\n", file_name);
+        return result;
+    }
+
+    int64_t len = get_file_size(fp);
+    char *contents = (char *)malloc((len + 1) * sizeof(char));
+    fread(contents, len, sizeof(char), fp);
+    contents[len] = '\0';
+    fclose(fp);
+
+    result.contents = contents;
+    result.content_size = len;
+    return result;
+}
+
+
+
+
+
+GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
+    GLuint program = glCreateProgram();
+    int status = 0;
+    int n;
+    char log[512];
+
+    GLuint vshader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vshader, 1, &vertex_src, nullptr);
+    glCompileShader(vshader);
+    glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        glGetShaderInfoLog(vshader, 512, &n, log);
+        printf("Failed to compile vertex shader!\n%s", log);
+    }
+    
+    GLuint fshader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fshader, 1, &frag_src, nullptr);
+    glCompileShader(fshader);
+    glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        glGetShaderInfoLog(fshader, 512, &n, log);
+        printf("Failed to compile fragment shader!\n%s", log);
+    }
+    
+    glAttachShader(program, vshader);
+    glAttachShader(program, fshader);
+    glLinkProgram(program);
+    glDeleteShader(vshader);
+    glDeleteShader(fshader);
+
+    return program;
+}
+
+GLuint gl_shader_create_from_file(const char *vertex_path, const char *fragment_path) {
+    Platform_File vertex_file = read_file(vertex_path);
+    Platform_File fragment_file = read_file(fragment_path);
+    GLuint program = gl_shader_create((char *)vertex_file.contents, (char *)fragment_file.contents);
+    return program;
+}
+
 int main(int argc, char **argv) {
     // stbi_set_flip_vertically_on_load(true);
     if (!glfwInit()) {
@@ -129,47 +206,6 @@ int main(int argc, char **argv) {
     
     glfwSwapInterval(1);
     
-    const char *cube_vsource = 
-        "#version 330 core\n"
-        "layout (location = 0) in vec3 a_pos;\n"
-        "layout (location = 1) in vec3 a_normal;\n"
-        "layout (location = 2) in vec2 a_coord;\n"
-        "uniform mat4 wvp;\n"
-        "uniform mat4 world;\n"
-        "out vec2 tex_coord;\n"
-        "out vec3 normal;\n"
-        "out vec3 posw;\n"
-        "void main() {\n"
-        "gl_Position = wvp * vec4(a_pos, 1.0);\n"
-        "posw = vec3(world * vec4(a_pos, 1.0));\n"
-        "normal = mat3(transpose(inverse(world))) * a_normal;\n"
-        "tex_coord = a_coord;\n"
-        "}\0";
-    
-    const char *cube_fsource = 
-        "#version 330 core\n"
-        "out vec4 out_color;\n"
-        "in vec2 tex_coord;\n"
-        "in vec3 normal;\n"
-        "in vec3 posw;\n"
-        "uniform sampler2D our_texture;\n"
-        "uniform vec3 object_color;\n"
-        "uniform vec3 light_color;\n"
-        "uniform vec3 light_pos;\n"
-        "void main() {\n"
-        "vec3 norm = normalize(normal);\n"
-        "vec3 light_dir = normalize(light_pos - posw);\n"
-        "float diff = max(dot(norm, light_dir), 0.0);\n"
-        "vec3 diffuse = diff * light_color;\n"
-        "float ambient_strength = 0.1;\n"
-        "vec3 ambient = ambient_strength * light_color;\n"
-        "vec3 lighting = (ambient + diffuse) * object_color;\n"
-        "vec4 tex_color = texture(our_texture, tex_coord);\n"
-        "vec4 result = tex_color * vec4(lighting, 1.0);\n"
-        "out_color = result;\n"
-        "}\0";
-   
-
     float cube_vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,   0.0f, 0.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,   1.0f, 0.0f,
@@ -231,35 +267,7 @@ int main(int argc, char **argv) {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
 
-    GLuint cube_program = glCreateProgram();
-    { 
-        int status = 0;
-        int n;
-        char log[512];
-        GLuint vshader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vshader, 1, &cube_vsource, nullptr);
-        glCompileShader(vshader);
-        glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
-        if (!status) {
-            glGetShaderInfoLog(vshader, 512, &n, log);
-            printf("Failed to compile vertex shader!\n%s", log);
-        }
-        
-        GLuint fshader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fshader, 1, &cube_fsource, nullptr);
-        glCompileShader(fshader);
-        glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
-        if (!status) {
-            glGetShaderInfoLog(fshader, 512, &n, log);
-            printf("Failed to compile fragment shader!\n%s", log);
-        }
-        
-        glAttachShader(cube_program, vshader);
-        glAttachShader(cube_program, fshader);
-        glLinkProgram(cube_program);
-        glDeleteShader(vshader);
-        glDeleteShader(fshader);
-    }
+    GLuint cube_program = gl_shader_create_from_file("cube_v.glsl", "cube_f.glsl");
     glUseProgram(cube_program);
     
     stbi_set_flip_vertically_on_load(true);
@@ -306,7 +314,8 @@ int main(int argc, char **argv) {
         }
 
 
-        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        // glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         glm::mat4 view = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
