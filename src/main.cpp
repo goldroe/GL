@@ -346,18 +346,20 @@ int main(int argc, char **argv) {
        
         int world_loc = glGetUniformLocation(cube_program, "world");
         int wvp_loc = glGetUniformLocation(cube_program, "wvp");
-        int light_col_loc = glGetUniformLocation(cube_program, "light_color");
-        int object_col_loc = glGetUniformLocation(cube_program, "object_color");
-        int light_pos_loc = glGetUniformLocation(cube_program, "light_pos");
         int eye_pos_loc = glGetUniformLocation(cube_program, "eye_pos");
 
         glUniformMatrix4fv(world_loc, 1, GL_FALSE, glm::value_ptr(world));
         glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
-
-        glUniform3f(light_col_loc,  1.0f, 1.0f, 1.0f);
-        glUniform3f(object_col_loc, 0.8f, 0.8f, 0.8f);
-        glUniform3fv(light_pos_loc, 1, glm::value_ptr(light_pos));
         glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
+
+        glUniform3fv(glGetUniformLocation(cube_program, "light.position"), 1, glm::value_ptr(light_pos));
+        glUniform3f(glGetUniformLocation(cube_program, "light.ambient"), 0.2f, 0.2f, 0.2f);
+        glUniform3f(glGetUniformLocation(cube_program, "light.diffuse"), 0.5f, 0.5f, 0.5f);
+        glUniform3f(glGetUniformLocation(cube_program, "light.specular"), 1.0f, 1.0f, 1.0f);
+
+        glUniform3f(glGetUniformLocation(cube_program, "material.ambient"), 1.0f, 0.5f, 0.31f);
+        glUniform3f(glGetUniformLocation(cube_program, "material.diffuse"), 1.0f, 0.5f, 0.31f);
+        glUniform4f(glGetUniformLocation(cube_program, "material.specular"), 0.5f, 0.5f, 0.5f, 32.0f);
 
         glBindVertexArray(cube_vao);
         glUseProgram(cube_program);
