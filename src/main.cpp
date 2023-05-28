@@ -143,19 +143,27 @@ GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
     glCompileShader(vshader);
     glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
     if (!status) {
-        glGetShaderInfoLog(vshader, 512, &n, log);
-        printf("Failed to compile vertex shader!\n%s", log);
+        printf("Failed to compile vertex shader!\n");
+    } else {
+        printf("Vertex Log:\n");
     }
     
+    glGetShaderInfoLog(vshader, 512, &n, log);
+    printf(log);
+
     GLuint fshader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fshader, 1, &frag_src, nullptr);
     glCompileShader(fshader);
     glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
     if (!status) {
-        glGetShaderInfoLog(fshader, 512, &n, log);
-        printf("Failed to compile fragment shader!\n%s", log);
+        printf("Failed to compile fragment shader!\n");
+    } else {
+        printf("Fragment Log:\n");
     }
     
+    glGetShaderInfoLog(fshader, 512, &n, log);
+    printf(log);
+
     glAttachShader(program, vshader);
     glAttachShader(program, fshader);
     glLinkProgram(program);
@@ -294,6 +302,7 @@ int main(int argc, char **argv) {
     float fov = 45.0f;
     delta_time = 0.0f;
     float last_frame = 0.0f;
+
     while (!glfwWindowShouldClose(window)) {
         float current_frame = (float)glfwGetTime();
         delta_time = current_frame - last_frame;
@@ -314,7 +323,6 @@ int main(int argc, char **argv) {
         }
 
 
-        // glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
@@ -330,19 +338,26 @@ int main(int argc, char **argv) {
         glm::mat4 projection = glm::perspective(glm::radians(fov), window_size.x / window_size.y, 0.1f, 100.0f);
         glm::mat4 world = glm::mat4(1.0f);
         glm::mat4 wvp = projection * view;
+
+        glm::vec3 light_pos;
+        light_pos.x = 2.0f * (float)glm::cos(glfwGetTime());
+        light_pos.y = 1.0f;
+        light_pos.z = 2.0f * (float)glm::sin(glfwGetTime());
        
         int world_loc = glGetUniformLocation(cube_program, "world");
         int wvp_loc = glGetUniformLocation(cube_program, "wvp");
         int light_col_loc = glGetUniformLocation(cube_program, "light_color");
         int object_col_loc = glGetUniformLocation(cube_program, "object_color");
         int light_pos_loc = glGetUniformLocation(cube_program, "light_pos");
+        int eye_pos_loc = glGetUniformLocation(cube_program, "eye_pos");
 
         glUniformMatrix4fv(world_loc, 1, GL_FALSE, glm::value_ptr(world));
         glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
 
         glUniform3f(light_col_loc,  1.0f, 1.0f, 1.0f);
-        glUniform3f(object_col_loc, 0.88f, 0.8f, 0.8f);
-        glUniform3f(light_pos_loc,  1.2f, 1.0f, 2.0f);
+        glUniform3f(object_col_loc, 0.8f, 0.8f, 0.8f);
+        glUniform3fv(light_pos_loc, 1, glm::value_ptr(light_pos));
+        glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
 
         glBindVertexArray(cube_vao);
         glUseProgram(cube_program);
