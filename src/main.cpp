@@ -129,14 +129,37 @@ Platform_File read_file(const char *file_name) {
 }
 
 
+GLuint gl_texture_create(const char *texture_path) {
+    stbi_set_flip_vertically_on_load(true);
+    int tex_width, tex_height, n;
+    unsigned char *tex_data = stbi_load(texture_path, &tex_width, &tex_height, &n, 4);
+    if (tex_data == NULL) {
+        printf("Failed to load texture: %s\n", texture_path);
+    }
 
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void *)tex_data);
+
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(tex_data);
+    return texture;
+}
 
 
 GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
     GLuint program = glCreateProgram();
     int status = 0;
     int n;
-    char log[512];
+    char log[512] = {};
 
     GLuint vshader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vshader, 1, &vertex_src, nullptr);
@@ -144,12 +167,13 @@ GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
     glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
     if (!status) {
         printf("Failed to compile vertex shader!\n");
-    } else {
-        printf("Vertex Log:\n");
     }
-    
+
     glGetShaderInfoLog(vshader, 512, &n, log);
-    printf(log);
+    if (n > 0) {
+        printf("Error in vertex shader!\n");
+        printf(log);
+    }
 
     GLuint fshader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fshader, 1, &frag_src, nullptr);
@@ -157,12 +181,13 @@ GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
     glGetShaderiv(vshader, GL_COMPILE_STATUS, &status);
     if (!status) {
         printf("Failed to compile fragment shader!\n");
-    } else {
-        printf("Fragment Log:\n");
     }
     
     glGetShaderInfoLog(fshader, 512, &n, log);
-    printf(log);
+    if (n > 0) {
+        printf("Error in fragment shader!\n");
+        printf(log);
+    }
 
     glAttachShader(program, vshader);
     glAttachShader(program, fshader);
@@ -278,25 +303,9 @@ int main(int argc, char **argv) {
     GLuint cube_program = gl_shader_create_from_file("cube_v.glsl", "cube_f.glsl");
     glUseProgram(cube_program);
     
-    stbi_set_flip_vertically_on_load(true);
-    int tex_width, tex_height, n;
-    unsigned char *tex_data = stbi_load("data/braynzar.jpg", &tex_width, &tex_height, &n, 4);
+    GLuint diffuse_map = gl_texture_create("data/container2.png");
+    GLuint specular_map = gl_texture_create("data/container2_specular.png");
 
-    GLuint texture_map;
-    glGenTextures(1, &texture_map);
-    glBindTexture(GL_TEXTURE_2D, texture_map);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_width, tex_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void *)tex_data);
-
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-
-    stbi_image_free(tex_data);
 
     glEnable(GL_DEPTH_TEST);
     float fov = 45.0f;
@@ -357,12 +366,18 @@ int main(int argc, char **argv) {
         glUniform3f(glGetUniformLocation(cube_program, "light.diffuse"), 0.5f, 0.5f, 0.5f);
         glUniform3f(glGetUniformLocation(cube_program, "light.specular"), 1.0f, 1.0f, 1.0f);
 
-        glUniform3f(glGetUniformLocation(cube_program, "material.ambient"), 1.0f, 0.5f, 0.31f);
-        glUniform3f(glGetUniformLocation(cube_program, "material.diffuse"), 1.0f, 0.5f, 0.31f);
-        glUniform4f(glGetUniformLocation(cube_program, "material.specular"), 0.5f, 0.5f, 0.5f, 32.0f);
+        glUniform1i(glGetUniformLocation(cube_program, "material.diffuse_map"), 0);
+        glUniform1i(glGetUniformLocation(cube_program, "material.specular_map"), 1);
+        glUniform1f(glGetUniformLocation(cube_program, "material.shininess"), 32.0f);
 
         glBindVertexArray(cube_vao);
         glUseProgram(cube_program);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuse_map);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specular_map);
+
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         glfwSwapBuffers(window);

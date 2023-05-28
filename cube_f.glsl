@@ -6,9 +6,9 @@ in vec3 posh;
 out vec4 out_color;
 
 struct Material {
-    vec3 ambient;
-    vec3 diffuse;
-    vec4 specular; // specular.w is intensity
+    sampler2D diffuse_map;
+    sampler2D specular_map;
+    float shininess;
 };
 
 struct Light {
@@ -29,16 +29,15 @@ void main() {
     vec3 eye_dir = normalize(eye_pos - posh);
     vec3 reflect_dir = reflect(-light_dir, norm);
 
-    vec3 ambient = light.ambient * material.ambient;
+    vec3 ambient = light.ambient * vec3(texture(material.diffuse_map, tex_coord));
 
     float diff = max(dot(norm, light_dir), 0.0);
-    vec3 diffuse = light.diffuse * (material.diffuse * diff);
+    vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse_map, tex_coord));
 
-    float spec = pow(max(dot(eye_dir, reflect_dir), 0.0), material.specular.w);
-    vec3 specular = light.specular * (material.specular.xyz * spec);
+    float spec = pow(max(dot(eye_dir, reflect_dir), 0.0), material.shininess);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular_map, tex_coord));
 
     vec3 lighting = (ambient + diffuse + specular);
-    // vec4 tex_color = texture(material.diffuse_map, tex_coord);
     vec4 result = vec4(lighting, 1.0);
     out_color = result;
 }
