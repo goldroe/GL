@@ -156,7 +156,7 @@ GLuint gl_texture_create(const char *texture_path) {
 
 
 GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
-    GLuint program = glCreateProgram();
+    GLuint shader = glCreateProgram();
     int status = 0;
     int n;
     char log[512] = {};
@@ -189,20 +189,20 @@ GLuint gl_shader_create(const char *vertex_src, const char *frag_src) {
         printf(log);
     }
 
-    glAttachShader(program, vshader);
-    glAttachShader(program, fshader);
-    glLinkProgram(program);
+    glAttachShader(shader, vshader);
+    glAttachShader(shader, fshader);
+    glLinkProgram(shader);
     glDeleteShader(vshader);
     glDeleteShader(fshader);
 
-    return program;
+    return shader;
 }
 
 GLuint gl_shader_create_from_file(const char *vertex_path, const char *fragment_path) {
     Platform_File vertex_file = read_file(vertex_path);
     Platform_File fragment_file = read_file(fragment_path);
-    GLuint program = gl_shader_create((char *)vertex_file.contents, (char *)fragment_file.contents);
-    return program;
+    GLuint shader = gl_shader_create((char *)vertex_file.contents, (char *)fragment_file.contents);
+    return shader;
 }
 
 int main(int argc, char **argv) {
@@ -282,7 +282,66 @@ int main(int argc, char **argv) {
         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,   0.0f, 0.0f,
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
     };
-            
+
+    float vertices[] = {
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+                            
+        -0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+                            
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+                            
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+                            
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f, -0.5f,
+                            
+        -0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+    };
+
+    // color
+    GLuint color_vao;
+    glGenVertexArrays(1, &color_vao);
+    glBindVertexArray(color_vao);
+
+    GLuint color_vbo;
+    glGenBuffers(1, &color_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, color_vbo);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+    
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
+    // cube 
     GLuint cube_vao;
     glGenVertexArrays(1, &cube_vao);
     glBindVertexArray(cube_vao);
@@ -300,8 +359,9 @@ int main(int argc, char **argv) {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
 
-    GLuint cube_program = gl_shader_create_from_file("cube_v.glsl", "cube_f.glsl");
-    glUseProgram(cube_program);
+    GLuint color_shader = gl_shader_create_from_file("color_v.glsl", "color_f.glsl");
+    GLuint cube_shader  = gl_shader_create_from_file("cube_v.glsl", "cube_f.glsl");
+    glUseProgram(cube_shader);
     
     GLuint diffuse_map = gl_texture_create("data/container2.png");
     GLuint specular_map = gl_texture_create("data/container2_specular.png");
@@ -352,31 +412,43 @@ int main(int argc, char **argv) {
         light_pos.x = 2.0f * (float)glm::cos(glfwGetTime());
         light_pos.y = 1.0f;
         light_pos.z = 2.0f * (float)glm::sin(glfwGetTime());
-       
-        int world_loc = glGetUniformLocation(cube_program, "world");
-        int wvp_loc = glGetUniformLocation(cube_program, "wvp");
-        int eye_pos_loc = glGetUniformLocation(cube_program, "eye_pos");
+
+        glBindVertexArray(cube_vao);
+        glUseProgram(cube_shader);
+
+        int world_loc = glGetUniformLocation(cube_shader, "world");
+        int wvp_loc = glGetUniformLocation(cube_shader, "wvp");
+        int eye_pos_loc = glGetUniformLocation(cube_shader, "eye_pos");
 
         glUniformMatrix4fv(world_loc, 1, GL_FALSE, glm::value_ptr(world));
         glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
         glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
 
-        glUniform3fv(glGetUniformLocation(cube_program, "light.position"), 1, glm::value_ptr(light_pos));
-        glUniform3f(glGetUniformLocation(cube_program, "light.ambient"), 0.2f, 0.2f, 0.2f);
-        glUniform3f(glGetUniformLocation(cube_program, "light.diffuse"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(cube_program, "light.specular"), 1.0f, 1.0f, 1.0f);
+        glUniform3fv(glGetUniformLocation(cube_shader, "light.position"), 1, glm::value_ptr(light_pos));
+        glUniform3f(glGetUniformLocation(cube_shader, "light.ambient"), 0.2f, 0.2f, 0.2f);
+        glUniform3f(glGetUniformLocation(cube_shader, "light.diffuse"), 0.5f, 0.5f, 0.5f);
+        glUniform3f(glGetUniformLocation(cube_shader, "light.specular"), 1.0f, 1.0f, 1.0f);
 
-        glUniform1i(glGetUniformLocation(cube_program, "material.diffuse_map"), 0);
-        glUniform1i(glGetUniformLocation(cube_program, "material.specular_map"), 1);
-        glUniform1f(glGetUniformLocation(cube_program, "material.shininess"), 32.0f);
-
-        glBindVertexArray(cube_vao);
-        glUseProgram(cube_program);
+        glUniform1i(glGetUniformLocation(cube_shader, "material.diffuse_map"), 0);
+        glUniform1i(glGetUniformLocation(cube_shader, "material.specular_map"), 1);
+        glUniform1f(glGetUniformLocation(cube_shader, "material.shininess"), 32.0f);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuse_map);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specular_map);
+
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        glBindVertexArray(color_vao);
+        glUseProgram(color_shader);
+
+        glUniform3f(glGetUniformLocation(color_shader, "color"), 1.0f, 1.0f, 1.0f);
+
+        world = glm::mat4(1.0f);
+        world = glm::translate(world, light_pos);
+        wvp = projection * view * world;
+        glUniformMatrix4fv(glGetUniformLocation(color_shader, "wvp"), 1, GL_FALSE, glm::value_ptr(wvp));
 
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
