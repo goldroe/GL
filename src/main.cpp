@@ -424,10 +424,34 @@ int main(int argc, char **argv) {
         glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
         glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
 
-        glUniform3fv(glGetUniformLocation(cube_shader, "light.position"), 1, glm::value_ptr(light_pos));
-        glUniform3f(glGetUniformLocation(cube_shader, "light.ambient"), 0.2f, 0.2f, 0.2f);
-        glUniform3f(glGetUniformLocation(cube_shader, "light.diffuse"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(cube_shader, "light.specular"), 1.0f, 1.0f, 1.0f);
+        glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
+        glm::vec3 diffuse = glm::vec3(0.5f, 0.5f, 0.5f);
+        glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
+
+        glUniform3f(glGetUniformLocation(cube_shader, "dir_source.direction"), 0.2f, -0.3f, 0.5f);
+
+        glUniform1f(glGetUniformLocation(cube_shader, "spot_source.cut_off"), glm::cos(glm::radians(12.5f)));
+        glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.position"), 1, glm::value_ptr(cam_pos));
+        glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.direction"), 1, glm::value_ptr(cam_front));
+
+
+        glUniform3fv(glGetUniformLocation(cube_shader, "point_source.position"), 1, glm::value_ptr(light_pos));
+        glUniform1f(glGetUniformLocation(cube_shader, "point_source.constant"), 1.0f);
+        glUniform1f(glGetUniformLocation(cube_shader, "point_source.linear"), 0.7f);
+        glUniform1f(glGetUniformLocation(cube_shader, "point_source.quadratic"), 1.8f);
+
+
+        glUniform3fv(glGetUniformLocation(cube_shader, "dir_source.ambient"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "dir_source.diffuse"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "dir_source.specular"), 1, glm::value_ptr(specular));       
+
+        glUniform3fv(glGetUniformLocation(cube_shader, "point_source.ambient"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "point_source.diffuse"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "point_source.specular"), 1, glm::value_ptr(specular));
+
+        glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.ambient"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.diffuse"), 1, glm::value_ptr(ambient));
+        glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.specular"), 1, glm::value_ptr(specular));
 
         glUniform1i(glGetUniformLocation(cube_shader, "material.diffuse_map"), 0);
         glUniform1i(glGetUniformLocation(cube_shader, "material.specular_map"), 1);
