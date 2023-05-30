@@ -33,6 +33,7 @@ struct Spot_Light {
     vec3 position;
     vec3 direction;
     float cut_off;
+    float outer_cut_off;
 
     vec3 ambient;
     vec3 diffuse;
@@ -81,21 +82,20 @@ vec3 compute_point_light(Point_Light light, vec3 normal, vec3 eye_dir) {
 vec3 compute_spot_light(Spot_Light light, vec3 normal, vec3 eye_dir) {
     vec3 light_dir = normalize(light.position - posh);
     float theta = dot(light_dir, normalize(-light.direction));
-
     vec3 ambient = light.ambient * texture(material.diffuse_map, tex_coord).rgb;
-    vec3 diffuse;
-    vec3 specular;
 
-    if (theta > light.cut_off) {
-        float diff = max(dot(normal, light_dir), 0.0);
-        diffuse = diff * light.diffuse * texture(material.diffuse_map, tex_coord).rgb;
+    float diff = max(dot(normal, light_dir), 0.0);
+    vec3 diffuse = diff * light.diffuse * texture(material.diffuse_map, tex_coord).rgb;
 
-        vec3 reflect_dir = reflect(-light_dir, normal);
-        float spec = pow(max(dot(eye_dir, reflect_dir), 0.0), material.shininess);
-        specular = spec * light.specular * texture(material.specular_map, tex_coord).rgb;
-    } else {
-        return ambient;
-    }
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float spec = pow(max(dot(eye_dir, reflect_dir), 0.0), material.shininess);
+    vec3 specular = spec * light.specular * texture(material.specular_map, tex_coord).rgb;
+
+    float epsilon = light.cut_off - light.outer_cut_off;
+    float intensity = clamp((theta - light.outer_cut_off) / epsilon, 0.0, 1.0);
+
+    specular *= intensity;
+    diffuse *= intensity;
 
     return ambient + diffuse + specular;
 }

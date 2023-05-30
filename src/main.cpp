@@ -406,7 +406,7 @@ int main(int argc, char **argv) {
         }
         glm::mat4 projection = glm::perspective(glm::radians(fov), window_size.x / window_size.y, 0.1f, 100.0f);
         glm::mat4 world = glm::mat4(1.0f);
-        glm::mat4 wvp = projection * view;
+        glm::mat4 wvp = glm::mat4(1.0f);
 
         glm::vec3 light_pos;
         light_pos.x = 2.0f * (float)glm::cos(glfwGetTime());
@@ -420,10 +420,6 @@ int main(int argc, char **argv) {
         int wvp_loc = glGetUniformLocation(cube_shader, "wvp");
         int eye_pos_loc = glGetUniformLocation(cube_shader, "eye_pos");
 
-        glUniformMatrix4fv(world_loc, 1, GL_FALSE, glm::value_ptr(world));
-        glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
-        glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
-
         glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
         glm::vec3 diffuse = glm::vec3(0.5f, 0.5f, 0.5f);
         glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -431,6 +427,7 @@ int main(int argc, char **argv) {
         glUniform3f(glGetUniformLocation(cube_shader, "dir_source.direction"), 0.2f, -0.3f, 0.5f);
 
         glUniform1f(glGetUniformLocation(cube_shader, "spot_source.cut_off"), glm::cos(glm::radians(12.5f)));
+        glUniform1f(glGetUniformLocation(cube_shader, "spot_source.outer_cut_off"), glm::cos(glm::radians(17.5f)));
         glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.position"), 1, glm::value_ptr(cam_pos));
         glUniform3fv(glGetUniformLocation(cube_shader, "spot_source.direction"), 1, glm::value_ptr(cam_front));
 
@@ -457,12 +454,28 @@ int main(int argc, char **argv) {
         glUniform1i(glGetUniformLocation(cube_shader, "material.specular_map"), 1);
         glUniform1f(glGetUniformLocation(cube_shader, "material.shininess"), 32.0f);
 
+        glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuse_map);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specular_map);
 
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glm::vec3 positions[4] = {
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(1.0f, 2.0f, 0.3f),
+            glm::vec3(1.4f, 1.3f, -1.0f),
+            glm::vec3(2.2f, 1.9f, 1.0f),
+        };
+        for (int i = 0; i < 4; i++) {
+            world = glm::mat4(1.0f);
+            world = glm::translate(world, positions[i]);
+            wvp = projection * view * world;
+            glUniformMatrix4fv(world_loc, 1, GL_FALSE, glm::value_ptr(world));
+            glUniformMatrix4fv(wvp_loc, 1, GL_FALSE, glm::value_ptr(wvp));
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+
 
         glBindVertexArray(color_vao);
         glUseProgram(color_shader);
