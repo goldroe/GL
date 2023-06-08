@@ -5,11 +5,10 @@
 #include <assert.h>
 #include <math.h>
 
+#include <vector>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h> 
-
-#define STB_DS_IMPLEMENTATION
-#include <stb_ds.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -128,6 +127,28 @@ Platform_File read_file(const char *file_name) {
     return result;
 }
 
+GLuint gl_load_skymap(std::vector<char*> face_textures) {
+    stbi_set_flip_vertically_on_load(false);
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+
+    int width, height, n;
+    for (unsigned int i = 0; i < face_textures.size(); i++) {
+        unsigned char *tex_data = stbi_load(face_textures[i], &width, &height, &n, 4);
+        assert(tex_data);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data);
+        stbi_image_free(tex_data);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    
+    return texture;
+}
 
 GLuint gl_texture_create(const char *texture_path) {
     stbi_set_flip_vertically_on_load(true);
@@ -206,7 +227,6 @@ GLuint gl_shader_create_from_file(const char *vertex_path, const char *fragment_
 }
 
 int main(int argc, char **argv) {
-    // stbi_set_flip_vertically_on_load(true);
     if (!glfwInit()) {
         printf("Could not initialize glfw\n");
         return -1;
@@ -239,6 +259,51 @@ int main(int argc, char **argv) {
     
     glfwSwapInterval(1);
     
+    float skybox_vertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+        1.0f,  1.0f, -1.0f,
+        1.0f,  1.0f,  1.0f,
+        1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+        1.0f, -1.0f,  1.0f
+    };
+
     float cube_vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,   0.0f, 0.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,   1.0f, 0.0f,
@@ -359,19 +424,44 @@ int main(int argc, char **argv) {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
 
+    // sky map
+    GLuint skymap_vao;
+    glGenVertexArrays(1, &skymap_vao);
+    glBindVertexArray(skymap_vao);
+
+    GLuint skymap_vbo;
+    glGenBuffers(1, &skymap_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, skymap_vbo);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skybox_vertices), skybox_vertices, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    
+    // shaders
+    
     GLuint color_shader = gl_shader_create_from_file("color_v.glsl", "color_f.glsl");
     GLuint cube_shader  = gl_shader_create_from_file("cube_v.glsl", "cube_f.glsl");
-    glUseProgram(cube_shader);
+    GLuint skymap_shader = gl_shader_create_from_file("skymap_v.glsl", "skymap_f.glsl");
     
     GLuint diffuse_map = gl_texture_create("data/container2.png");
     GLuint specular_map = gl_texture_create("data/container2_specular.png");
 
+    std::vector<char*> faces;
+    faces.push_back("data/skybox/right.jpg");
+    faces.push_back("data/skybox/left.jpg");
+    faces.push_back("data/skybox/top.jpg");
+    faces.push_back("data/skybox/bottom.jpg");
+    faces.push_back("data/skybox/front.jpg");
+    faces.push_back("data/skybox/back.jpg");
 
-    glEnable(GL_DEPTH_TEST);
+    GLuint sky_map = gl_load_skymap(faces);
+
     float fov = 45.0f;
     delta_time = 0.0f;
     float last_frame = 0.0f;
 
+    glEnable(GL_DEPTH_TEST);
     while (!glfwWindowShouldClose(window)) {
         float current_frame = (float)glfwGetTime();
         delta_time = current_frame - last_frame;
@@ -412,6 +502,17 @@ int main(int argc, char **argv) {
         light_pos.x = 2.0f * (float)glm::cos(glfwGetTime());
         light_pos.y = 1.0f;
         light_pos.z = 2.0f * (float)glm::sin(glfwGetTime());
+
+        glDepthFunc(GL_LEQUAL);
+        glUseProgram(skymap_shader);
+        glm::mat4 sky_view = glm::mat4(glm::mat3(view));
+        glUniformMatrix4fv(glGetUniformLocation(skymap_shader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(skymap_shader, "view"), 1, GL_FALSE, glm::value_ptr(sky_view));
+
+        glBindVertexArray(skymap_vao);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, sky_map);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDepthFunc(GL_LESS);
 
         glBindVertexArray(cube_vao);
         glUseProgram(cube_shader);
@@ -454,7 +555,7 @@ int main(int argc, char **argv) {
         glUniform1i(glGetUniformLocation(cube_shader, "material.specular_map"), 1);
         glUniform1f(glGetUniformLocation(cube_shader, "material.shininess"), 32.0f);
 
-        glUniform3fv(eye_pos_loc,   1, glm::value_ptr(cam_pos));
+        glUniform3fv(eye_pos_loc, 1, glm::value_ptr(cam_pos));
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuse_map);
