@@ -1,3 +1,4 @@
+#version 330 core
 in vec2 tex_coord;
 in vec3 normal;
 in vec3 posh;
@@ -47,7 +48,6 @@ uniform Directional_Light dir_source;
 uniform Point_Light point_source;
 uniform Spot_Light spot_source;
 
-uniform Spot_Light light;
 vec3 compute_directional_light(Directional_Light light, vec3 normal, vec3 eye_dir) {
     vec3 light_dir = normalize(-light.direction);
     vec3 reflect_dir = reflect(-light_dir, normal);
